@@ -41,8 +41,11 @@ import {
   MessageSquare,
   Briefcase,
   Camera,
-  Laptop
+  Laptop,
+  UserCog
 } from 'lucide-react';
+import UserManagement from './components/UserManagement';
+import { authenticateUser, logout, isAuthenticated, getCurrentUser } from './lib/auth';
 
 interface Lead {
   id: string;
@@ -119,6 +122,7 @@ function App() {
   const [showPlanModal, setShowPlanModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<'basico' | 'intermedio' | 'avanzado' | null>(null);
   const [showServiceModal, setShowServiceModal] = useState(false);
+  const [currentUser, setCurrentUser] = useState(getCurrentUser());
 
   // Estados para formularios
   const [loginData, setLoginData] = useState({ username: '', password: '' });
@@ -194,6 +198,12 @@ function App() {
 
   // Cargar datos del localStorage
   useEffect(() => {
+    // Check if user is already authenticated
+    if (isAuthenticated()) {
+      setIsAuthenticated(true);
+      setShowAdminPanel(true);
+    }
+
     const savedLeads = localStorage.getItem('melxagency_leads');
     const savedPlanRequests = localStorage.getItem('melxagency_plan_requests');
     const savedServiceRequests = localStorage.getItem('melxagency_service_requests');
@@ -319,19 +329,24 @@ function App() {
     setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
   };
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (loginData.username === 'informatico' && loginData.password === 'Sam/Dany96') {
+    
+    try {
+      const user = await authenticateUser(loginData);
+      setCurrentUser(user);
       setIsAuthenticated(true);
       setIsLoginOpen(false);
       setShowAdminPanel(true);
       setLoginData({ username: '', password: '' });
-    } else {
-      alert('Credenciales incorrectas');
+    } catch (error: any) {
+      alert(error.message || 'Error al iniciar sesión');
     }
   };
 
   const handleLogout = () => {
+    logout();
+    setCurrentUser(null);
     setIsAuthenticated(false);
     setShowAdminPanel(false);
   };
@@ -626,13 +641,18 @@ function App() {
                 </div>
                 <h1 className="text-2xl font-bold text-gray-900">Panel de Control - MelxAgency</h1>
               </div>
-              <button
-                onClick={handleLogout}
-                className="flex items-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-              >
-                <LogOut className="w-4 h-4" />
-                <span>Cerrar Sesión</span>
-              </button>
+              <div className="flex items-center space-x-4">
+                <div className="text-sm text-gray-600">
+                  Bienvenido, {currentUser?.name}
+                </div>
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>Cerrar Sesión</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -688,7 +708,8 @@ function App() {
                   { id: 'services', label: 'Consultas de Servicios', icon: Briefcase },
                   { id: 'blog', label: 'Blog', icon: FileText },
                   { id: 'faq', label: 'FAQ', icon: HelpCircle },
-                  { id: 'team', label: 'Equipo', icon: Users }
+                  { id: 'team', label: 'Equipo', icon: Users },
+                  { id: 'users', label: 'Usuarios', icon: UserCog }
                 ].map(tab => {
                   const Icon = tab.icon;
                   return (
@@ -1121,6 +1142,8 @@ function App() {
                   ))}
                 </div>
               )}
+
+              {activeTab === 'users' && <UserManagement />}
             </div>
           </div>
         </div>
